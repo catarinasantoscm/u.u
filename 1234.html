@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f7f7f7;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #game {
+            position: relative;
+            width: 100vw; /* Full screen width for mobile */
+            height: 50vh; /* Half screen height */
+            max-width: 800px; /* Cap on larger screens */
+            max-height: 200px;
+            background: #F7E7CE;
+            border: 2px solid #000;
+            overflow: hidden;
+        }
+        #heart {
+            position: absolute;
+            bottom: 0;
+            left: 5%; /* Relative to game width */
+            font-size: clamp(30px, 5vw, 50px); /* Scales with screen */
+            user-select: none;
+        }
+        #heart.jumping {
+            animation: jump 3s ease-in-out;
+        }
+        #heart.hittingWall {
+            animation: hitWall 2s ease-in-out forwards;
+        }
+        @keyframes jump {
+            0% { bottom: 0; }
+            25% { bottom: 20vh; } /* Scales with height */
+            90% { bottom: 20vh; }
+            100% { bottom: 0; }
+        }
+        @keyframes hitWall {
+            0% { left: 5%; }
+            100% { left: 85%; } /* Near right edge, relative */
+        }
+        .wood {
+            position: absolute;
+            bottom: 0;
+            width: 2vw; /* Scales */
+            height: 10vh; /* Scales */
+            background: #660000;
+            border-radius: 5px;
+            right: -2vw;
+        }
+        #timer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: clamp(16px, 2vw, 20px);
+            color: #000;
+        }
+        #message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(20px, 4vw, 30px);
+            color: #960018;
+            text-align: center;
+        }
+        #restartButton {
+            display: none;
+            position: absolute;
+            top: 80%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: clamp(16px, 2vw, 20px);
+            background: #960018;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        /* Mobile-specific tweaks */
+        @media (max-width: 600px) {
+            #game {
+                height: 40vh; /* Shorter on very small screens */
+            }
+            #heart {
+                font-size: 40px;
+            }
+            .wood {
+                width: 3vw;
+                height: 15vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="heart">✨</div>
+        <div id="timer">Time: 30s</div>
+        <div id="message">I think I like uuuuu ✨✨✨</div>
+        <button id="restartButton">Restart Game</button>
+    </div>
+
+    <script>
+        const game = document.getElementById('game');
+        const heart = document.getElementById('heart');
+        const timerDisplay = document.getElementById('timer');
+        const message = document.getElementById('message');
+        const restartButton = document.getElementById('restartButton');
+
+        let timeLeft = 30;
+        let gameRunning = true;
+        let woods = [];
+        let isJumping = false;
+        let timer;
+        let gameLoop;
+        let woodSpawnCounter = 0;
+        const woodSpawnInterval = 100;
+
+        function startTimer() {
+            timer = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    timerDisplay.textContent = `Time: ${timeLeft}s`;
+                } else {
+                    gameRunning = false;
+                    clearInterval(timer);
+                    clearInterval(gameLoop);
+                    heart.classList.add('hittingWall');
+                    setTimeout(() => {
+                        message.style.display = 'block';
+                        restartButton.style.display = 'block';
+                    }, 2000);
+                }
+            }, 1000);
+        }
+
+        function startGameLoop() {
+            gameLoop = setInterval(() => {
+                if (!gameRunning) return;
+
+                woods.forEach((wood, index) => {
+                    const woodRight = parseInt(wood.style.right || 0);
+                    wood.style.right = (woodRight + 5) + 'px';
+
+                    if (woodRight > 105) { // Adjusted for responsive width
+                        wood.remove();
+                        woods.splice(index, 1);
+                    }
+
+                    const heartRect = heart.getBoundingClientRect();
+                    const woodRect = wood.getBoundingClientRect();
+                    if (heartRect.right > woodRect.left && heartRect.left < woodRect.right &&
+                        heartRect.bottom > woodRect.top && heartRect.top < woodRect.bottom &&
+                        !isJumping) {
+                        resetGame();
+                    }
+                });
+
+                woodSpawnCounter++;
+                if (woodSpawnCounter >= woodSpawnInterval) {
+                    createWood();
+                    woodSpawnCounter = 0;
+                }
+            }, 50);
+        }
+
+        function jump() {
+            if (!isJumping) {
+                isJumping = true;
+                heart.classList.add('jumping');
+                setTimeout(() => {
+                    heart.classList.remove('jumping');
+                    isJumping = false;
+                }, 1000);
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                jump();
+            }
+        });
+        game.addEventListener('click', jump);
+
+        function createWood() {
+            const wood = document.createElement('div');
+            wood.classList.add('wood');
+            game.appendChild(wood);
+            woods.push(wood);
+        }
+
+        function resetGame() {
+            clearInterval(timer);
+            clearInterval(gameLoop);
+            timeLeft = 30;
+            timerDisplay.textContent = `Time: 30s`;
+            message.style.display = 'none';
+            restartButton.style.display = 'none';
+            woods.forEach(wood => wood.remove());
+            woods = [];
+            woodSpawnCounter = 0;
+            heart.classList.remove('hittingWall');
+            heart.style.left = '5%'; // Reset to relative
+            gameRunning = true;
+            startTimer();
+            startGameLoop();
+        }
+
+        restartButton.addEventListener('click', resetGame);
+
+        startTimer();
+        startGameLoop();
+    </script>
+</body>
+</html>
